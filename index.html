@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>무지개 비행대대 - 마법 하늘 모험</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js for kid-friendly procedural music and sound effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Jua&display=swap" rel="stylesheet">
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body {
+            font-family: 'Jua', 'Gaegu', sans-serif;
+            background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+            overflow: hidden;
+        }
+        .canvas-container {
+            box-shadow: 0 20px 30px rgba(0, 0, 0, 0.15), inset 0 0 15px rgba(255, 255, 255, 0.6);
+        }
+        .btn-kid {
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+        .btn-kid:active {
+            transform: scale(0.95);
+        }
+        /* Custom Keyframes for sparkling UI */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(3deg); }
+        }
+        .animate-float {
+            animation: float 3s infinite ease-in-out;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { filter: drop-shadow(0 0 5px rgba(255,230,0,0.8)); }
+            50% { filter: drop-shadow(0 0 15px rgba(255,230,0,1)); }
+        }
+        .pulse-glow {
+            animation: pulse-glow 1.5s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-2 md:p-4 bg-sky-100">
+
+    <div class="w-full max-w-2xl flex flex-col items-center">
+        <!-- Header Title Banner -->
+        <header class="text-center mb-2 animate-float">
+            <h1 class="text-3xl md:text-5xl font-extrabold text-pink-500 drop-shadow-[0_3px_0_rgba(255,255,255,1)] tracking-wider">
+                ✈️ 무지개 비행대대 ✨
+            </h1>
+            <p class="text-xs md:text-base text-sky-700 font-semibold bg-white/70 px-4 py-1 rounded-full shadow-sm inline-block mt-1">
+                알록달록 하늘에서 별들을 모으고 먹구름을 해님으로 만들어요!
+            </p>
+        </header>
+
+        <!-- Main Game Container -->
+        <div class="relative w-full aspect-[3/4] max-h-[80vh] max-w-[480px] bg-sky-300 rounded-3xl border-4 border-white overflow-hidden canvas-container flex flex-col">
+            
+            <!-- Game HUD / Top Bar -->
+            <div id="hud" class="absolute top-0 left-0 w-full p-3 flex justify-between items-center z-10 pointer-events-none text-white drop-shadow-md">
+                <div class="flex items-center space-x-1 bg-white/40 backdrop-blur-md px-3 py-1 rounded-2xl border border-white/60">
+                    <span class="text-2xl">⭐</span>
+                    <span id="score-text" class="text-xl md:text-2xl font-bold text-yellow-300">0</span>
+                </div>
+                
+                <div id="lives-container" class="flex items-center space-x-1 bg-white/40 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/60">
+                    <!-- Hearts generated dynamically -->
+                    <span class="text-red-500 text-xl">❤️</span>
+                    <span class="text-red-500 text-xl">❤️</span>
+                    <span class="text-red-500 text-xl">❤️</span>
+                </div>
+
+                <div class="flex items-center space-x-2 pointer-events-auto">
+                    <button id="sound-btn" class="w-10 h-10 bg-yellow-400 hover:bg-yellow-300 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white btn-kid">
+                        <i id="sound-icon" class="fas fa-volume-up text-lg"></i>
+                    </button>
+                    <button id="pause-btn" class="w-10 h-10 bg-pink-400 hover:bg-pink-300 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white btn-kid">
+                        <i class="fas fa-pause text-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Canvas Element -->
+            <canvas id="gameCanvas" class="w-full h-full block bg-sky-300 cursor-pointer"></canvas>
+
+            <!-- Start Screen Overlay -->
+            <div id="start-screen" class="absolute inset-0 bg-sky-400/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
+                <div class="text-6xl mb-3 animate-bounce">🛩️</div>
+                <h2 class="text-3xl md:text-4xl font-bold text-white mb-2 drop-shadow-md">마법 하늘로 출발!</h2>
+                <p class="text-sky-900 text-sm md:text-base font-semibold mb-6 max-w-xs">
+                    손가락으로 비행기를 움직여서<br>하트총으로 먹구름을 밝게 밝혀주세요!
+                </p>
+
+                <!-- Mode Selection -->
+                <div class="w-full max-w-xs space-y-3 mb-6">
+                    <button id="start-toddler-btn" class="w-full py-3.5 px-4 bg-gradient-to-r from-yellow-300 to-amber-400 text-amber-900 font-bold text-xl rounded-2xl shadow-lg border-4 border-white btn-kid flex items-center justify-center space-x-2">
+                        <span>🌟 무적 아기 모드</span>
+                        <span class="text-xs bg-white/80 px-2 py-0.5 rounded-full font-normal">(안 죽어요!)</span>
+                    </button>
+                    <button id="start-normal-btn" class="w-full py-3.5 px-4 bg-gradient-to-r from-pink-400 to-rose-500 text-white font-bold text-xl rounded-2xl shadow-lg border-4 border-white btn-kid flex items-center justify-center space-x-2">
+                        <span>🎈 신나는 조종사 모드</span>
+                        <span class="text-xs bg-white/20 px-2 py-0.5 rounded-full font-normal">(하트 3개)</span>
+                    </button>
+                </div>
+
+                <!-- Control Hints -->
+                <div class="bg-white/40 p-3 rounded-2xl text-xs text-sky-900 font-semibold border border-white/60 w-full max-w-xs">
+                    💡 <b>조작법:</b> 화면 터치/드래그 또는 키보드 방향키<br>
+                    (자동으로 예쁜 하트 총알이 나가요!)
+                </div>
+            </div>
+
+            <!-- Pause Overlay -->
+            <div id="pause-screen" class="hidden absolute inset-0 bg-sky-900/60 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-20">
+                <div class="text-5xl mb-3">⏸️</div>
+                <h3 class="text-3xl font-bold text-white mb-6">잠시 쉬는 시간!</h3>
+                <button id="resume-btn" class="px-8 py-3 bg-green-400 hover:bg-green-300 text-white font-bold text-xl rounded-2xl shadow-lg border-4 border-white btn-kid">
+                    ▶️ 다시 날아가기
+                </button>
+            </div>
+
+            <!-- Victory / Stage Complete Overlay -->
+            <div id="win-screen" class="hidden absolute inset-0 bg-pink-500/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
+                <div class="text-6xl mb-2 animate-bounce">👑</div>
+                <h2 class="text-3xl md:text-4xl font-bold text-yellow-200 mb-1">최고의 하늘 영웅!</h2>
+                <p id="win-score-text" class="text-white text-xl font-bold mb-6">모은 별: 0개</p>
+                <button id="next-stage-btn" class="px-8 py-4 bg-yellow-300 hover:bg-yellow-200 text-amber-900 font-bold text-2xl rounded-2xl shadow-xl border-4 border-white btn-kid pulse-glow">
+                    🚀 다음 모험으로!
+                </button>
+            </div>
+
+            <!-- Game Over Screen (Only in Normal mode) -->
+            <div id="gameover-screen" class="hidden absolute inset-0 bg-indigo-900/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
+                <div class="text-6xl mb-3">🌈</div>
+                <h2 class="text-3xl font-bold text-white mb-2">다시 도전해 볼까요?</h2>
+                <p class="text-sky-200 text-sm mb-6">구름 친구들이 또 놀고 싶어해요!</p>
+                <button id="restart-btn" class="px-8 py-3.5 bg-pink-400 hover:bg-pink-300 text-white font-bold text-xl rounded-2xl shadow-lg border-4 border-white btn-kid">
+                    🔄 다시 시작하기
+                </button>
+            </div>
+
+            <!-- Mobile Touch Controls overlay if needed -->
+            <div id="touch-controls" class="absolute bottom-4 left-0 w-full px-6 flex justify-between items-center pointer-events-none md:hidden z-10 opacity-70">
+                <div class="text-white text-xs bg-black/20 px-3 py-1 rounded-full">
+                    👆 손가락으로 이리저리 움직여요!
+                </div>
+                <button id="special-btn" class="pointer-events-auto w-14 h-14 bg-gradient-to-tr from-yellow-300 to-amber-400 text-white rounded-full shadow-lg border-2 border-white flex items-center justify-center text-2xl active:scale-95 transition-transform">
+                    ✨
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Audio Engine using Tone.js
+        let soundEnabled = true;
+        let synth, polySynth, bgmLoop;
+
+        function initAudio() {
+            try {
+                synth = new Tone.Synth({
+                    oscillator: { type: "triangle" },
+                    envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 }
+                }).toDestination();
+                synth.volume.value = -12;
+
+                polySynth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: "sine" },
+                    envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.2 }
+                }).toDestination();
+                polySynth.volume.value = -10;
+            } catch (e) {
+                console.log("Audio initialization skipped or restricted");
+            }
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                if (Tone.context.state !== 'running') {
+                    Tone.start();
+                }
+                const now = Tone.now();
+                if (type === 'shoot') {
+                    synth.triggerAttackRelease("C6", "16n", now);
+                } else if (type === 'star') {
+                    polySynth.triggerAttackRelease(["E6", "G6", "B6"], "16n", now);
+                } else if (type === 'cheer') {
+                    polySynth.triggerAttackRelease(["C5", "E5", "G5", "C6"], "8n", now);
+                } else if (type === 'hit') {
+                    synth.triggerAttackRelease("A3", "16n", now);
+                } else if (type === 'win') {
+                    polySynth.triggerAttackRelease(["C5", "E5", "G5", "C6", "E6"], "4n", now);
+                } else if (type === 'special') {
+                    polySynth.triggerAttackRelease(["F5", "A5", "C6", "F6"], "8n", now);
+                }
+            } catch(e) {}
+        }
+
+        // Game Engine Variables
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let isRunning = false;
+        let isPaused = false;
+        let isToddlerMode = true;
+        let score = 0;
+        let lives = 3;
+        let stage = 1;
+        let frameCount = 0;
+
+        // Player Plane
+        const player = {
+            x: 0,
+            y: 0,
+            width: 50,
+            height: 50,
+            speed: 6,
+            invulnerableTimer: 0,
+            specialCooldown: 0,
+            trail: []
+        };
+
+        // Game Entities
+        let playerBullets = [];
+        let enemies = [];
+        let enemyBullets = [];
+        let collectibles = [];
+        let particles = [];
+        let clouds = [];
+        let rainbowBeams = [];
+
+        // Key states
+        const keys = {
+            ArrowLeft: false,
+            ArrowRight: false,
+            ArrowUp: false,
+            ArrowDown: false,
+            Space: false
+        };
+
+        // Canvas Sizing
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            if (!isRunning) {
+                player.x = canvas.width / 2;
+                player.y = canvas.height - 100;
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function initClouds() {
+            clouds = [];
+            for (let i = 0; i < 12; i++) {
+                clouds.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 40 + 20,
+                    speed: Math.random() * 1.5 + 0.5,
+                    opacity: Math.random() * 0.4 + 0.3
+                });
+            }
+        }
+
+        function updateClouds() {
+            clouds.forEach(c => {
+                c.y += c.speed;
+                if (c.y - c.size > canvas.height) {
+                    c.y = -c.size;
+                    c.x = Math.random() * canvas.width;
+                }
+            });
+        }
+
+        function drawClouds() {
+            clouds.forEach(c => {
+                ctx.fillStyle = `rgba(255, 255, 255, ${c.opacity})`;
+                ctx.beginPath();
+                ctx.arc(c.x, c.y, c.size, 0, Math.PI * 2);
+                ctx.arc(c.x + c.size * 0.5, c.y - c.size * 0.2, c.size * 0.7, 0, Math.PI * 2);
+                ctx.arc(c.x - c.size * 0.5, c.y - c.size * 0.2, c.size * 0.7, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function drawPlayer() {
+            // Draw invincibility aura if active
+            if (player.invulnerableTimer > 0) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, player.width * 0.7, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 225, 100, 0.4)';
+                ctx.fill();
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Rainbow jet trail
+            player.trail.push({ x: player.x, y: player.y + 20, radius: 12, alpha: 0.8 });
+            if (player.trail.length > 8) player.trail.shift();
+
+            player.trail.forEach((t, index) => {
+                const colors = ['#f43f5e', '#fb923c', '#facc15', '#4ade80', '#38bdf8', '#a855f7'];
+                ctx.beginPath();
+                ctx.arc(t.x, t.y + (8 - index) * 3, t.radius * (index / 8), 0, Math.PI * 2);
+                ctx.fillStyle = colors[index % colors.length];
+                ctx.globalAlpha = (index / 8) * 0.6;
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1.0;
+
+            // Cute Toy Plane Body
+            ctx.save();
+            ctx.translate(player.x, player.y);
+
+            // Plane Wings
+            ctx.fillStyle = '#f43f5e'; // Bright pink red
+            ctx.beginPath();
+            ctx.roundRect(-30, -5, 60, 12, 6);
+            ctx.fill();
+
+            // Main fuselage
+            ctx.fillStyle = '#3b82f6'; // Cheerful blue
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 16, 28, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Propeller Cap
+            ctx.fillStyle = '#facc15';
+            ctx.beginPath();
+            ctx.arc(0, -26, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Propeller spin effect
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            const spinAngle = (frameCount * 0.4);
+            ctx.moveTo(Math.cos(spinAngle) * 18, -26 + Math.sin(spinAngle) * 6);
+            ctx.lineTo(-Math.cos(spinAngle) * 18, -26 - Math.sin(spinAngle) * 6);
+            ctx.stroke();
+
+            // Cockpit glass / Cute eyes
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.ellipse(-5, -6, 5, 7, 0, 0, Math.PI * 2);
+            ctx.ellipse(5, -6, 5, 7, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Eye Pupils
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.arc(-4, -6, 2.5, 0, Math.PI * 2);
+            ctx.arc(6, -6, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Smile
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 2, 4, 0.1 * Math.PI, 0.9 * Math.PI);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function shootBullet() {
+            // Shoots happy hearts or glowing stars
+            playerBullets.push({
+                x: player.x - 12,
+                y: player.y - 20,
+                vy: -9,
+                size: 14,
+                type: 'heart'
+            });
+            playerBullets.push({
+                x: player.x + 12,
+                y: player.y - 20,
+                vy: -9,
+                size: 14,
+                type: 'heart'
+            });
+            playSound('shoot');
+        }
+
+        function triggerSpecialPower() {
+            if (player.specialCooldown > 0) return;
+            player.specialCooldown = 180; // 3 seconds cooldown
+            playSound('special');
+
+            // Rainbow Beam / Star Cleanser
+            rainbowBeams.push({
+                x: player.x,
+                y: player.y,
+                width: 80,
+                height: canvas.height,
+                alpha: 1.0
+            });
+
+            // Turn all enemy projectiles into star points!
+            enemyBullets.forEach(b => {
+                collectibles.push({
+                    x: b.x,
+                    y: b.y,
+                    vy: 2,
+                    type: 'star',
+                    size: 16
+                });
+            });
+            enemyBullets = [];
+        }
+
+        function spawnEnemy() {
+            if (frameCount % Math.max(25, 60 - stage * 5) === 0) {
+                const types = ['cloud', 'toyPlane', 'balloon'];
+                const selectedType = types[Math.floor(Math.random() * types.length)];
+                
+                enemies.push({
+                    x: Math.random() * (canvas.width - 60) + 30,
+                    y: -40,
+                    width: 44,
+                    height: 44,
+                    type: selectedType,
+                    hp: selectedType === 'cloud' ? 3 : 2,
+                    maxHp: selectedType === 'cloud' ? 3 : 2,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: Math.random() * 1.5 + 1.2,
+                    wiggleOffset: Math.random() * 100
+                });
+            }
+        }
+
+        function updateEnemies() {
+            enemies.forEach((e, index) => {
+                e.y += e.vy;
+                e.x += e.vx + Math.sin((frameCount + e.wiggleOffset) * 0.05) * 1.2;
+
+                // Gentle shooting from enemy clouds (Flower Bubbles instead of dangerous bullets)
+                if (!isToddlerMode && e.type === 'cloud' && Math.random() < 0.01) {
+                    enemyBullets.push({
+                        x: e.x,
+                        y: e.y + 20,
+                        vx: (player.x - e.x) * 0.015,
+                        vy: 3,
+                        size: 12
+                    });
+                }
+
+                // Remove out of bounds
+                if (e.y > canvas.height + 50) {
+                    enemies.splice(index, 1);
+                }
+            });
+        }
+
+        function drawEnemies() {
+            enemies.forEach(e => {
+                ctx.save();
+                ctx.translate(e.x, e.y);
+
+                if (e.type === 'cloud') {
+                    // Grumpy Dark Cloud -> gets happier when damaged
+                    const happinessRatio = 1 - (e.hp / e.maxHp);
+                    ctx.fillStyle = happinessRatio > 0.5 ? '#93c5fd' : '#64748b';
+
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 20, 0, Math.PI * 2);
+                    ctx.arc(-15, 5, 14, 0, Math.PI * 2);
+                    ctx.arc(15, 5, 14, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Cute grumpy/surprised face
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(-7, -2, 4, 0, Math.PI * 2);
+                    ctx.arc(7, -2, 4, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#0f172a';
+                    ctx.beginPath();
+                    ctx.arc(-7, -2, 2, 0, Math.PI * 2);
+                    ctx.arc(7, -2, 2, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Mouth changes with hp
+                    ctx.strokeStyle = '#0f172a';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    if (happinessRatio > 0) {
+                        ctx.arc(0, 5, 4, 0, Math.PI); // Smile!
+                    } else {
+                        ctx.arc(0, 10, 4, Math.PI, 0); // Grumpy frown
+                    }
+                    ctx.stroke();
+
+                } else if (e.type === 'toyPlane') {
+                    // Friendly rival purple plane
+                    ctx.fillStyle = '#a855f7';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 14, 22, 0, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#e879f9';
+                    ctx.fillRect(-24, -2, 48, 8);
+
+                } else if (e.type === 'balloon') {
+                    // Colorful Hot Air Balloon
+                    ctx.fillStyle = '#f43f5e';
+                    ctx.beginPath();
+                    ctx.arc(0, -5, 18, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Basket
+                    ctx.fillStyle = '#d97706';
+                    ctx.fillRect(-6, 14, 12, 10);
+                }
+
+                ctx.restore();
+            });
+        }
+
+        function createExplosionParticles(x, y, color = '#facc15') {
+            for (let i = 0; i < 12; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
+                    radius: Math.random() * 6 + 3,
+                    color: color,
+                    life: 25
+                });
+            }
+        }
+
+        function updateParticles() {
+            particles.forEach((p, index) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+                if (p.life <= 0) particles.splice(index, 1);
+            });
+        }
+
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life / 25;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1.0;
+        }
+
+        function drawCollectibles() {
+            collectibles.forEach(c => {
+                ctx.save();
+                ctx.translate(c.x, c.y);
+
+                if (c.type === 'star') {
+                    // Glowing Golden Star
+                    ctx.fillStyle = '#facc15';
+                    ctx.beginPath();
+                    for (let i = 0; i < 5; i++) {
+                        ctx.lineTo(Math.cos((18 + i * 72) * Math.PI / 180) * c.size, -Math.sin((18 + i * 72) * Math.PI / 180) * c.size);
+                        ctx.lineTo(Math.cos((54 + i * 72) * Math.PI / 180) * (c.size / 2), -Math.sin((54 + i * 72) * Math.PI / 180) * (c.size / 2));
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (c.type === 'heartItem') {
+                    ctx.fillStyle = '#ef4444';
+                    ctx.beginPath();
+                    ctx.arc(-5, -3, 6, 0, Math.PI * 2);
+                    ctx.arc(5, -3, 6, 0, Math.PI * 2);
+                    ctx.lineTo(0, 10);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            });
+        }
+
+        function checkCollisions() {
+            // Player bullets vs Enemies
+            playerBullets.forEach((b, bIdx) => {
+                enemies.forEach((e, eIdx) => {
+                    const dist = Math.hypot(b.x - e.x, b.y - e.y);
+                    if (dist < e.width / 2 + b.size) {
+                        // Hit!
+                        e.hp--;
+                        playerBullets.splice(bIdx, 1);
+                        createExplosionParticles(b.x, b.y, '#f43f5e');
+
+                        if (e.hp <= 0) {
+                            // Turn enemy into bright happy sun/stars!
+                            playSound('cheer');
+                            createExplosionParticles(e.x, e.y, '#facc15');
+
+                            // Drop stars / candies
+                            collectibles.push({
+                                x: e.x,
+                                y: e.y,
+                                vy: 2,
+                                type: Math.random() < 0.2 ? 'heartItem' : 'star',
+                                size: 14
+                            });
+
+                            enemies.splice(eIdx, 1);
+                            score += 10;
+                            updateHUD();
+                        }
+                    }
+                });
+            });
+
+            // Collectibles vs Player
+            collectibles.forEach((c, cIdx) => {
+                c.y += c.vy;
+                const dist = Math.hypot(c.x - player.x, c.y - player.y);
+                if (dist < player.width / 2 + c.size) {
+                    if (c.type === 'star') {
+                        score += 5;
+                        playSound('star');
+                        createExplosionParticles(c.x, c.y, '#facc15');
+                    } else if (c.type === 'heartItem') {
+                        if (lives < 5) lives++;
+                        playSound('cheer');
+                        createExplosionParticles(c.x, c.y, '#ef4444');
+                    }
+                    collectibles.splice(cIdx, 1);
+                    updateHUD();
+                }
+            });
+
+            // Enemy bullets vs Player
+            enemyBullets.forEach((eb, ebIdx) => {
+                eb.y += eb.vy;
+                eb.x += eb.vx;
+                const dist = Math.hypot(eb.x - player.x, eb.y - player.y);
+                if (dist < player.width / 3 + eb.size) {
+                    enemyBullets.splice(ebIdx, 1);
+                    handlePlayerHit();
+                }
+            });
+
+            // Enemies vs Player direct collision
+            enemies.forEach((e, eIdx) => {
+                const dist = Math.hypot(e.x - player.x, e.y - player.y);
+                if (dist < player.width / 2 + e.width / 3) {
+                    createExplosionParticles(e.x, e.y, '#60a5fa');
+                    enemies.splice(eIdx, 1);
+                    handlePlayerHit();
+                }
+            });
+        }
+
+        function handlePlayerHit() {
+            if (player.invulnerableTimer > 0) return;
+
+            playSound('hit');
+            createExplosionParticles(player.x, player.y, '#ef4444');
+
+            if (!isToddlerMode) {
+                lives--;
+                updateHUD();
+                player.invulnerableTimer = 90; // Invulnerable for 1.5s
+
+                if (lives <= 0) {
+                    gameOver();
+                }
+            } else {
+                // In Toddler Mode, just trigger cute bounce & temporary aura, no dying!
+                player.invulnerableTimer = 60;
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('score-text').textContent = score;
+            const livesContainer = document.getElementById('lives-container');
+
+            if (isToddlerMode) {
+                livesContainer.innerHTML = `<span class="text-yellow-300 text-lg font-bold">🌟 무적 모드</span>`;
+            } else {
+                let heartsHtml = '';
+                for (let i = 0; i < lives; i++) {
+                    heartsHtml += `<span class="text-red-500 text-xl">❤️</span>`;
+                }
+                livesContainer.innerHTML = heartsHtml;
+            }
+        }
+
+        function gameLoop() {
+            if (!isRunning) return;
+
+            if (!isPaused) {
+                frameCount++;
+
+                // Clear Canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Update Background
+                updateClouds();
+                drawClouds();
+
+                // Keyboard movement controls
+                if (keys.ArrowLeft && player.x > player.width / 2) player.x -= player.speed;
+                if (keys.ArrowRight && player.x < canvas.width - player.width / 2) player.x += player.speed;
+                if (keys.ArrowUp && player.y > player.height / 2) player.y -= player.speed;
+                if (keys.ArrowDown && player.y < canvas.height - player.height / 2) player.y += player.speed;
+
+                // Automatic shooting for kids
+                if (frameCount % 12 === 0) {
+                    shootBullet();
+                }
+
+                // Update Special Cooldown
+                if (player.specialCooldown > 0) player.specialCooldown--;
+                if (player.invulnerableTimer > 0) player.invulnerableTimer--;
+
+                // Update Player Bullets
+                playerBullets.forEach((b, index) => {
+                    b.y += b.vy;
+                    if (b.y < -20) playerBullets.splice(index, 1);
+                });
+
+                // Render Rainbow Beams
+                rainbowBeams.forEach((rb, index) => {
+                    ctx.fillStyle = `rgba(255, 230, 100, ${rb.alpha})`;
+                    ctx.fillRect(rb.x - rb.width / 2, 0, rb.width, rb.height);
+                    rb.alpha -= 0.05;
+                    if (rb.alpha <= 0) rainbowBeams.splice(index, 1);
+                });
+
+                // Update Entities
+                spawnEnemy();
+                updateEnemies();
+                checkCollisions();
+                updateParticles();
+
+                // Draw Entities
+                drawCollectibles();
+                drawEnemies();
+
+                // Draw Enemy Bullets
+                enemyBullets.forEach(eb => {
+                    ctx.fillStyle = '#fb7185';
+                    ctx.beginPath();
+                    ctx.arc(eb.x, eb.y, eb.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                // Draw Player Bullets (Hearts)
+                playerBullets.forEach(b => {
+                    ctx.fillStyle = '#ec4899';
+                    ctx.beginPath();
+                    ctx.arc(b.x - 3, b.y - 3, 5, 0, Math.PI * 2);
+                    ctx.arc(b.x + 3, b.y - 3, 5, 0, Math.PI * 2);
+                    ctx.lineTo(b.x, b.y + 5);
+                    ctx.fill();
+                });
+
+                // Draw Player Plane
+                drawPlayer();
+
+                // Draw Particles
+                drawParticles();
+
+                // Check Win Condition (Stage Goal)
+                if (score >= stage * 200) {
+                    stageWin();
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame(toddlerMode = true) {
+            isToddlerMode = toddlerMode;
+            score = 0;
+            lives = 3;
+            stage = 1;
+            playerBullets = [];
+            enemies = [];
+            enemyBullets = [];
+            collectibles = [];
+            particles = [];
+
+            resizeCanvas();
+            initClouds();
+            initAudio();
+
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 100;
+
+            updateHUD();
+
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('win-screen').classList.add('hidden');
+            document.getElementById('gameover-screen').classList.add('hidden');
+            document.getElementById('pause-screen').classList.add('hidden');
+
+            isRunning = true;
+            isPaused = false;
+            gameLoop();
+        }
+
+        function gameOver() {
+            isRunning = false;
+            document.getElementById('gameover-screen').classList.remove('hidden');
+        }
+
+        function stageWin() {
+            isRunning = false;
+            playSound('win');
+            document.getElementById('win-score-text').textContent = `모은 별: ${score}개!`;
+            document.getElementById('win-screen').classList.remove('hidden');
+        }
+
+        // Button Event Listeners
+        document.getElementById('start-toddler-btn').addEventListener('click', () => startGame(true));
+        document.getElementById('start-normal-btn').addEventListener('click', () => startGame(false));
+        document.getElementById('restart-btn').addEventListener('click', () => startGame(isToddlerMode));
+        document.getElementById('next-stage-btn').addEventListener('click', () => {
+            stage++;
+            startGame(isToddlerMode);
+        });
+
+        document.getElementById('pause-btn').addEventListener('click', () => {
+            if (!isRunning) return;
+            isPaused = !isPaused;
+            document.getElementById('pause-screen').classList.toggle('hidden', !isPaused);
+        });
+
+        document.getElementById('resume-btn').addEventListener('click', () => {
+            isPaused = false;
+            document.getElementById('pause-screen').classList.add('hidden');
+        });
+
+        document.getElementById('special-btn').addEventListener('click', triggerSpecialPower);
+
+        document.getElementById('sound-btn').addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            const soundIcon = document.getElementById('sound-icon');
+            if (soundEnabled) {
+                soundIcon.className = "fas fa-volume-up text-lg";
+            } else {
+                soundIcon.className = "fas fa-volume-mute text-lg";
+            }
+        });
+
+        // Touch & Drag Controls
+        let isDragging = false;
+
+        function handlePointerMove(e) {
+            if (!isRunning || isPaused) return;
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            const targetX = clientX - rect.left;
+            const targetY = clientY - rect.top;
+
+            // Smooth plane follow
+            player.x += (targetX - player.x) * 0.3;
+            player.y += (targetY - player.y) * 0.3;
+
+            // Keep plane inside bounds
+            player.x = Math.max(player.width / 2, Math.min(canvas.width - player.width / 2, player.x));
+            player.y = Math.max(player.height / 2, Math.min(canvas.height - player.height / 2, player.y));
+        }
+
+        canvas.addEventListener('mousedown', (e) => { isDragging = true; handlePointerMove(e); });
+        window.addEventListener('mousemove', (e) => { if (isDragging) handlePointerMove(e); });
+        window.addEventListener('mouseup', () => { isDragging = false; });
+
+        canvas.addEventListener('touchstart', (e) => { isDragging = true; handlePointerMove(e); }, { passive: true });
+        window.addEventListener('touchmove', (e) => { if (isDragging) handlePointerMove(e); }, { passive: true });
+        window.addEventListener('touchend', () => { isDragging = false; });
+
+        // Keyboard Controls
+        window.addEventListener('keydown', (e) => {
+            if (keys.hasOwnProperty(e.code)) keys[e.code] = true;
+            if (e.code === 'Space') {
+                triggerSpecialPower();
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            if (keys.hasOwnProperty(e.code)) keys[e.code] = false;
+        });
+
+        // Initialize Canvas size on window load
+        window.onload = function() {
+            resizeCanvas();
+            initClouds();
+        };
+    </script>
+</body>
+</html>
